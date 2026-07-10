@@ -1,0 +1,48 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Next.js
+/.next/
+/out/
+
+# Production
+/build
+
+# Coverage
+/coverage
+
+# Environment variables
+.env*
+!.env.example
+
+# Vercel
+.vercel
+
+# Databases
+*.db
+*.db-shm
+*.db-wal
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# macOS
+.DS_Store
+*.pem
+
+/context
+AGENTS.md
+CLAUDE.md
