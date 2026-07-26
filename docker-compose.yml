@@ -1,0 +1,54 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SpendSense AI — docker-compose.yml
+# ─────────────────────────────────────────────────────────────────────────────
+# Usage:
+#   docker-compose up --build    # first time
+#   docker-compose up            # subsequent runs (uses cached image)
+#   docker-compose down          # stop and remove containers
+#
+# The SQLite database is persisted via a named volume (spendsense_data).
+# On first boot, the entrypoint runs db:migrate before starting the server
+# to ensure all tables exist — safe to run on every startup (uses IF NOT EXISTS).
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spendsense-app
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      SQLITE_PATH: /data/spendsense.db
+    volumes:
+      # Named volume for SQLite persistence — survives container restarts
+      - spendsense_data:/data
+    # Run migration on every startup (idempotent — uses IF NOT EXISTS).
+    # This solves the first-boot problem: the volume starts empty,
+    # migration creates the tables, then the Next.js server starts.
+    command: >
+      sh -c "
+        node -e \"
+          const Database = require('better-sqlite3');
+          const fs = require('fs');
+          const db = new Database(process.env.SQLITE_PATH || '/data/spendsense.db');
+          const schema = fs.readFileSync('/app/src/data/schema.sql', 'utf8');
+          db.exec(schema);
+          db.close();
+          console.log('[startup] Migration complete.');
+        \" &&
+        node server.js
+      "
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ | grep -q 'SpendSense' || exit 1"]
+      interval: 30s
+      timeout:  10s
+      retries:  3
+      start_period: 15s
+
+volumes:
+  spendsense_data:
+    driver: local

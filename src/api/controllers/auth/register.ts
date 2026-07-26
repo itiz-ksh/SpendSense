@@ -25,6 +25,7 @@ import {
   buildSessionCookieHeader,
   SESSION_TTL_MS,
 } from '@/api/middleware/auth';
+import { rateLimit, getClientIp, REGISTER_LIMIT } from '@/api/middleware/rate-limit';
 import { query } from '@/data/db';
 import type { UserRecord } from '@/data/types';
 
@@ -39,6 +40,20 @@ const BCRYPT_ROUNDS = 12;
 
 export async function POST(request: NextRequest): Promise<Response> {
   try {
+    // ── 0. Rate Limiting ─────────────────────────────────────────────────
+    // Stricter than login (3/min) — registration is low-frequency by design.
+    // ⚠️  IP is read from X-Forwarded-For (spoofable without trusted proxy).
+    //     See src/api/middleware/rate-limit.ts for full caveat documentation.
+    const ip = getClientIp(request);
+    const { limited, retryAfter } = rateLimit(ip, REGISTER_LIMIT, 'register');
+    if (limited) {
+      return errorResponse(
+        429,
+        'RATE_LIMITED',
+        `Too many registration attempts. Please wait ${retryAfter} second(s) before trying again.`,
+      );
+    }
+
     // ── 1. Schema Validation ─────────────────────────────────────────────
     let body: unknown;
     try {
